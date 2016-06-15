@@ -1,0 +1,208 @@
+/*Lee Anne Sigua
+ * masc0839
+ */
+package data_structures;
+
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
+
+class DictionaryNode<K,V> implements Comparable<DictionaryNode<K,V>>{
+	K key;
+	V value;
+	
+	public DictionaryNode (K key, V value){
+		this.key = key;
+		this.value = value;
+	}
+	public int compareTo(DictionaryNode<K,V> node){
+		return ((Comparable<K>)key).compareTo((K)node.key);
+	}
+}
+
+public class HashTable<K,V> implements DictionaryADT<K,V> {
+	
+	
+	private int currentSize;
+	private int maxSize;
+	private int tableSize;
+	private long modCounter;
+	private LinearListADT <DictionaryNode <K,V>> [] list;
+	public HashTable(int max){
+		currentSize = 0;
+		maxSize = max;
+		tableSize = (int)(max * 1.3f);
+		modCounter = 0;
+		list = new LinearList[tableSize];
+		for(int i=0; i < tableSize; i++)
+			list [i] = new LinearList<DictionaryNode <K,V>>();
+	}
+	
+	@Override
+	// Returns true if the dictionary has an object identified by
+	// key in it, otherwise false.
+	public boolean contains(K key) {
+		return list [getHashCode(key)].contains(new DictionaryNode<K,V>(key,null)); //have to create new dictionary node to show what you are searching for. 
+	}
+	
+	private int getHashCode(K key){
+		return key.hashCode() & 0x7FFFFFFF % tableSize;
+	}
+	
+	@Override
+	// Adds the given key/value pair to the dictionary.  Returns 
+	// false if the dictionary is full, or if the key is a duplicate.
+	// Returns true if addition succeeded.
+	public boolean add(K key, V value) {
+		if(isFull()) return false; //check if dictionary is full
+		if(contains(key)) return false; //if dictionary already contains key/ does not take duplicates
+		list[getHashCode(key)].addFirst(new DictionaryNode<K,V>(key,value)); 
+		currentSize++;
+		modCounter++;
+		return true;
+	}
+	@Override
+	// Deletes the key/value pair identified by the key parameter.
+	// Returns true if the key/value pair was found and removed,
+	// otherwise false.
+	public boolean delete(K key) {
+		if(!contains(key)) return false;
+		list[getHashCode(key)].remove(new DictionaryNode<K,V>(key,null));
+		currentSize--;
+		modCounter++;
+		return true;
+	}
+	@Override
+	// Returns the value associated with the parameter key.  Returns
+	// null if the key is not found or the dictionary is empty.
+	public V getValue(K key) {
+		int keyPosition = list[getHashCode(key)].locate(new DictionaryNode<K,V>(key,null));
+		if(keyPosition == -1)
+			return null;
+		DictionaryNode<K,V> tmp = list[getHashCode(key)].get(keyPosition);
+		return tmp.value;
+	}
+	@Override
+	// Returns the key associated with the parameter value.  Returns
+	// null if the value is not found in the dictionary.  If more 
+	// than one key exists that matches the given value, returns the
+	// first one found. 
+	public K getKey(V value) {
+		for(int i=0; i<list.length; i++){
+			Iterator<DictionaryNode<K,V>> bin = list[i].iterator();
+			while(bin.hasNext()){
+				DictionaryNode<K,V> present = bin.next(); 
+				if (present!=null && (((Comparable<V>)present.value).compareTo(value) ==0))
+					return present.key;  
+			}
+		}
+		return null;
+	}
+	@Override
+	// Returns the number of key/value pairs currently stored 
+	// in the dictionary
+	public int size() {
+		return currentSize;
+		
+	}
+	@Override
+	// Returns true if the dictionary has a max capacity and is at max capacity
+	public boolean isFull() {
+		return currentSize == maxSize;
+	}
+	@Override
+	// Returns true if the dictionary is empty
+	public boolean isEmpty() {
+		return currentSize==0;
+	}
+	@Override
+	// Returns the Dictionary object to an empty state.
+	public void clear() {
+		for(int i=0; i < tableSize; i++)
+			list[i]= new LinearList<DictionaryNode<K,V>>();
+		currentSize = 0;
+		modCounter++;	
+	}
+	abstract class IteratorHelper<E> implements Iterator<E>{
+		protected DictionaryNode<K,V> [] nodes;
+		protected int index;
+		protected long modCheck;
+		
+		public IteratorHelper(){
+			nodes = new DictionaryNode[currentSize];
+			index = 0;
+			int j = 0;
+			modCheck = modCounter;
+			for(int i=0; i < tableSize; i++)
+				for(DictionaryNode n : list[i])
+					nodes [j++] = n;
+			shellSort();
+		}
+		
+		private void shellSort(){
+			DictionaryNode<K,V> array[] = nodes;
+			DictionaryNode<K,V> misc;
+			int in, out, h = 1;
+			int size = array.length;
+			
+			while(h <= size/3) //calculate gaps
+				h = h*3+1;
+			while(h > 0){
+				for(out = h; out < size; out++){
+					misc = array[out];
+					in = out;
+					while(in > h-1 && (((Comparable<K>)array[in-h].key).compareTo(misc.key)) >= 0){
+						array[in] = array[in-h];
+						in -= h;
+					}
+				array[in] = misc;
+				} // end for
+			h = (h-1)/3;
+			}// end while
+		}
+		
+		public boolean hasNext(){
+			if(modCheck != modCounter)
+				throw new ConcurrentModificationException();
+			return index < currentSize;
+		}
+		
+		public abstract E next();
+		
+		public void remove(){
+			throw new UnsupportedOperationException();
+		}
+	}
+	
+	class KeyIteratorHelper<K> extends IteratorHelper<K>{
+		public KeyIteratorHelper(){
+			super();
+		}
+		
+		public K next(){
+			return (K) nodes [index++].key;
+		}
+	}
+	
+	class ValueIteratorHelper<V> extends IteratorHelper<V>{
+		public ValueIteratorHelper(){
+			super();
+		}
+		
+		public V next(){
+			return (V) nodes[index++].value;
+		}
+	}
+	@Override
+	// Returns an Iterator of the keys in the dictionary, in ascending
+	// sorted order.  The iterator must be fail-fast.
+	public Iterator<K> keys() {
+		return new KeyIteratorHelper<K>();
+	}
+	@Override
+	// Returns an Iterator of the values in the dictionary.  The
+	// order of the values must match the order of the keys. 
+	// The iterator must be fail-fast.
+	public Iterator<V> values() {
+		return new ValueIteratorHelper<V>();
+	}
+}
