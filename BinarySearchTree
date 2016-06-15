@@ -1,0 +1,269 @@
+/*Lee Anne Sigua
+ * masc0839
+ */
+package data_structures;
+
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
+
+//import data_structures.HashTable.IteratorHelper;
+
+
+public class BinarySearchTree<K,V> implements DictionaryADT<K,V> {
+	private class Node<K,V>{
+		private K key;     // data item (key)
+		private V value;   // data item
+		private Node<K,V> leftChild;  //this node's left child
+		private Node<K,V> rightChild; //this node's right child
+		
+		public Node(K k, V v){
+			key = k;
+			value = v;
+			leftChild = rightChild = null;
+		}
+	}// end class node
+	
+	private Node<K,V> root; //first node of tree
+	private int currentSize;
+	private long modCounter;
+	public BinarySearchTree(){ //constructor
+		root = null;
+		currentSize = 0;
+		modCounter = 0;
+	}
+
+	@Override
+	// Returns true if the dictionary has an object identified by
+	// key in it, otherwise false.
+	public boolean contains(K key) {
+		return look(key, root);
+	}
+	private boolean look(K key, Node<K,V> n){
+		if(n == null) return false;
+		if(((Comparable<K>)key).compareTo(n.key) < 0)
+			return look(key, n.leftChild);  //go left
+		if(((Comparable<K>)key).compareTo(n.key) > 0)
+			return look(key, n.rightChild);  //go right
+		return true;    //found
+	}
+	
+
+	@Override
+	// Adds the given key/value pair to the dictionary.  Returns 
+	// false if the dictionary is full, or if the key is a duplicate.
+	// Returns true if addition succeeded.
+	public boolean add(K key, V value) {
+		Node<K,V> newNode = new Node<K,V>(key,value); //make new node
+		if(root == null)   //no node in root
+			root = new Node<K,V>(key,value);
+		else if(contains(key))
+			return false;
+		else
+			insert(key,value,root,null,false);
+				
+		currentSize++;
+		modCounter++;
+		return true;
+	}
+	private void insert(K k, V v, Node<K,V> n,Node<K,V> parent, boolean wasLeft){
+		if(n==null){   //at leaf node so to insert
+			if(wasLeft)parent.leftChild = new Node<K,V>(k,v);
+			else parent.rightChild = new Node<K,V>(k,v);
+			}
+		
+		else if (((Comparable<K>)k).compareTo((K)n.key) < 0)
+			insert(k,v,n.leftChild,n,true); //go left
+		else 
+			insert(k,v,n.rightChild,n,false); //go right
+		
+	}
+
+	@Override
+	// Deletes the key/value pair identified by the key parameter.
+	// Returns true if the key/value pair was found and removed,
+	// otherwise false.
+	public boolean delete(K key) {
+		if (isEmpty()) return false;
+		if(!remove(key,root,null,false))
+			return false;
+		currentSize--;
+		modCounter++;
+		return true;
+	}
+	
+	private boolean remove(K k,Node<K,V> n, Node<K,V>parent, boolean wasLeft){
+		if(n == null) return false;
+		int comp = ((Comparable<K>)k).compareTo(n.key);
+		if(comp<0) return remove(k, n.leftChild,n,true);
+		else if (comp>0) return remove(k,n.rightChild,n,false);
+		else{     //found
+			if(n.leftChild == null && n.rightChild==null){ //no children
+				if (parent == null) root= null;
+				else if (wasLeft) parent.leftChild = null;
+				else parent.rightChild = null;
+			}
+			else if(n.leftChild == null){ //1 right child
+				if(parent == null) root = n.rightChild;
+				else if(wasLeft) parent.leftChild = n.rightChild;
+				else parent.rightChild = n.rightChild;
+			}
+			else if(n.rightChild == null){ //1 left child
+				if(parent == null) root = n.leftChild;
+				else if(wasLeft) parent.leftChild = n.leftChild;
+				else parent.rightChild = n.leftChild;
+			}
+			else{ //two kids
+				Node<K,V> tmp = getSuccessor(n.rightChild);
+				if(tmp == null){
+					n.key = n.rightChild.key;
+					n.value = n.rightChild.value;
+					n.rightChild = n.rightChild.rightChild;
+				}
+				else{
+					n.key = tmp.key;
+					n.value = tmp.value;
+				}
+			}
+		}
+		return true;
+	}
+	private Node<K,V> getSuccessor(Node<K,V> n){
+		Node<K,V> parent = null;
+		while(n.leftChild != null){
+			parent = n;
+			n = n.leftChild;
+		}
+		if(parent == null) return null;
+		else parent.leftChild = n.rightChild;
+		return n;
+	}
+	
+	@Override
+	// Returns the value associated with the parameter key.  Returns
+	// null if the key is not found or the dictionary is empty.
+	public V getValue(K key) {
+		return find(key, root);
+	}
+	private V find(K key, Node<K,V> n) {
+		if(n == null) return null;
+		if(((Comparable<K>)key).compareTo(n.key) < 0)
+			return find(key, n.leftChild);  //go left
+		if(((Comparable<K>)key).compareTo(n.key) > 0)
+			return find(key, n.rightChild);  //go right
+		return (V) n.value;    //found
+	}
+
+	@Override
+	// Returns the key associated with the parameter value.  Returns
+	// null if the value is not found in the dictionary.  If more 
+	// than one key exists that matches the given value, returns the
+	// first one found.
+	public K getKey(V value) {
+		Iterator<V> val = values();
+		Iterator<K> karr = keys();
+		while(karr.hasNext()){
+			V otemp = val.next();
+			K temp = karr.next();
+			if(((Comparable<V>) otemp).compareTo(value) == 0)
+				return temp;
+		}
+		return null;
+	}
+
+	@Override
+	// Returns the number of key/value pairs currently stored 
+	// in the dictionary
+	public int size() {
+		return currentSize;
+	}
+
+	@Override
+	// Returns true if the dictionary has a max capacity and is at max capacity
+	public boolean isFull() {
+		return false;
+	}
+
+	@Override
+	// Returns true if the dictionary is empty
+	public boolean isEmpty() {
+		return currentSize==0;
+	}
+
+	@Override
+	// Returns the Dictionary object to an empty state.
+	public void clear() {
+		root = null;
+		currentSize = 0;
+		modCounter++;
+		
+	}
+	abstract class IteratorHelper<E> implements Iterator<E>{
+		protected Node<K,V> [] nodes;
+		protected int index;
+		protected int j;
+		protected long modCheck;
+		
+		public IteratorHelper(){
+			nodes = new Node[currentSize];
+			index = 0;
+			int j = 0;
+			modCheck = modCounter;
+			inOrder(root);
+		}
+		
+		private void inOrder(Node<K,V> n){
+			if(n != null){
+				inOrder(n.leftChild);
+				nodes[j++]=n;
+				inOrder(n.rightChild);
+			}
+		}
+		
+		public boolean hasNext(){
+			if(modCheck != modCounter)
+				throw new ConcurrentModificationException();
+			return index < currentSize;
+		}
+		
+		public abstract E next();
+		
+		public void remove(){
+			throw new UnsupportedOperationException();
+		}
+	}
+	
+	class KeyIteratorHelper<K> extends IteratorHelper<K>{
+		public KeyIteratorHelper(){
+			super();
+		}
+		
+		public K next(){
+			return (K) nodes [index++].key;
+		}
+	}
+	
+	class ValueIteratorHelper<V> extends IteratorHelper<V>{
+		public ValueIteratorHelper(){
+			super();
+		}
+		
+		public V next(){
+			return (V) nodes[index++].value;
+		}
+	}
+	@Override
+	// Returns an Iterator of the keys in the dictionary, in ascending
+	// sorted order.  The iterator must be fail-fast.
+	public Iterator<K> keys() {
+		return new KeyIteratorHelper<K>();
+	}
+
+	@Override
+	// Returns an Iterator of the values in the dictionary.  The
+	// order of the values must match the order of the keys. 
+	// The iterator must be fail-fast.
+	public Iterator<V> values() {
+		return new ValueIteratorHelper<V>();
+	}
+
+}
